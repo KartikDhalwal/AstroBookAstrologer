@@ -59,7 +59,6 @@ const AstrologerEarnings = () => {
         payload,
         { headers: { "Content-Type": "application/json" } }
       );
-      console.log(response.data.results,'response.data.results')
       setEarnings(response.data.results || null);
     } catch (error) {
       console.log("Earning Error:", error);
@@ -73,8 +72,8 @@ const AstrologerEarnings = () => {
   }, [filterType]);
 
   return (
-    <SafeAreaView style={styles.safe}>
-      {/* HEADER */}
+<SafeAreaView style={styles.safe} edges={["top"]}>
+{/* HEADER */}
       <View style={styles.header}>
         <Text style={styles.title}>Your Earnings</Text>
 
@@ -233,7 +232,7 @@ const AstrologerEarnings = () => {
             </View>
           )}
 
-          <View style={{ height: 40 }} />
+          {/* <View style={{ height: 40 }} /> */}
         </ScrollView>
       )}
     </SafeAreaView>

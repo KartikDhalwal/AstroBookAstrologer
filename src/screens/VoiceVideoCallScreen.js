@@ -29,6 +29,7 @@ import { api_url } from "../config/Constants";
 import { useCallState } from "../context/CallStateContext";
 import MiniFloatingWindow from "../MiniFloatingWindow";
 import { initSocket, getSocket } from "../services/socket";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 let agoraEngine = null;
 
@@ -60,12 +61,17 @@ const VoiceVideoCallScreen = ({ navigation, route }) => {
   const booking = route?.params?.booking;
   const isVideo = route?.params?.isVideo === true;
   const channelName = route?.params?.channelName;
-
   // const [remoteUid, setRemoteUid] = useState(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeakerOn, setIsSpeakerOn] = useState(false);
   const [isFrontCamera, setIsFrontCamera] = useState(true);
+  const [profile, setProfile] = useState(null);
+  const [imageError, setImageError] = useState(false);
 
+  const astrologerId =
+    profile?._id ||
+    booking?.astrologer?._id ||
+    null;
   const [callDuration, setCallDuration] = useState(0);
   const durationRef = useRef(null);
   const endCallTriggered = useRef(false);
@@ -83,79 +89,92 @@ const VoiceVideoCallScreen = ({ navigation, route }) => {
 
   const getImageUrl = (path) => {
     if (!path) return null;
-
-    if (path.startsWith("http")) {
-      return path;
+  
+    let fixedPath = path;
+  
+    // 🔧 Fix common typo automatically
+    fixedPath = fixedPath.replace("amazzonaws.com", "amazonaws.com");
+  
+    if (fixedPath.startsWith("http")) {
+      return fixedPath;
     }
-
-    const cleanPath = path.startsWith("/")
-      ? path.slice(1)
-      : path;
-    return `${BASE_URL}/${cleanPath}`;
+  
+    return `https://alb-web-assets.s3.ap-south-1.amazonaws.com/${fixedPath.replace(/^\/+/, "")}`;
   };
-  useEffect(() => {
-    const astrologerId = booking?.astrologer?._id;
-    if (!astrologerId) return;
+  
 
-    const s = initSocket({
+  useEffect(() => {
+    loadAstrologerData();
+  }, []);
+
+  const loadAstrologerData = async () => {
+    try {
+      const data = await AsyncStorage.getItem('astrologerData');
+      if (data) {
+        setProfile(JSON.parse(data));
+      }
+    } catch (error) {
+      console.log('Error loading astrologer data:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (!channelName || !astrologerId) return;
+
+    const socket = initSocket({
       userId: astrologerId,
       user_type: "astrologer",
     });
-
-    if (!s.connected) {
-      s.connect();
-    }
-  }, []);
-
-
-  useEffect(() => {
-    const socket = getSocket();
-    if (!socket || !channelName) return;
-
-    if (!socket.connected) {
-      socket.connect();
-    }
-
-    socket.emit("call:join", {
+    socket.emit("call:ring:start", {
       channelName,
-      role: "astrologer",
+      bookingId: booking?._id,
+      astrologerId,
+      customerId: booking?.customer?._id,
     });
+    console.log("📞 Ring started by astrologer:", channelName);
 
-  }, [channelName]);
+    const onRingEnded = (data) => {
 
-
-  useEffect(() => {
-    const socket = getSocket();
-    if (!socket) return;
-    const onCallEnded = (data) => {
       if (data.channelName !== channelName) return;
       if (endCallTriggered.current) return;
 
       endCallTriggered.current = true;
 
-      if (data.endedBy === "user") {
-        Alert.alert(
-          "User Disconnected",
-          "The user has disconnected the call.\nPlease restart the call ASAP.",
-          [
-            {
-              text: "OK",
-              onPress: () => {
-                forceCleanup();
-              },
-            },
-          ],
-          { cancelable: false }
-        );
-        return;
-      }
+      Alert.alert(
+        "Call Rejected",
+        "User rejected the call.\nPlease restart the call Urgently.",
+        [{ text: "OK", onPress: forceCleanup }],
+        { cancelable: false }
+      );
+    };
 
+    const onCallEnded = (data) => {
+      console.log("📴 call:end received", data);
+
+      if (data.channelName !== channelName) return;
+      if (endCallTriggered.current) return;
+
+      endCallTriggered.current = true;
       forceCleanup();
     };
-    socket.on("call:end", onCallEnded);
-    return () => socket.off("call:end", onCallEnded);
-  }, [channelName]);
 
+    // ✅ LISTEN FIRST
+    socket.on("call:ring:end", onRingEnded);
+    socket.on("call:end", onCallEnded);
+
+    // ✅ JOIN ROOM IMMEDIATELY (NO DELAY)
+    socket.emit("call:join", {
+      channelName,
+      role: "astrologer",
+    });
+
+    console.log("👤 Astrologer joined room:", channelName);
+
+    return () => {
+      socket.off("call:ring:end", onRingEnded);
+      socket.off("call:end", onCallEnded);
+    };
+  }, [channelName, astrologerId]);
 
   useEffect(() => {
     endCallTriggered.current = false;
@@ -317,10 +336,9 @@ const VoiceVideoCallScreen = ({ navigation, route }) => {
       }
 
       setRemainingTime(Math.floor((endTime.getTime() - now) / 1000));
-
       const token = await fetchToken(channelName);
-
-      tokenInfoRef.current = token; // ✅ persist
+      console.log({ token })
+      tokenInfoRef.current = token;
       setTokenInfo(token);
 
       agoraEngine = createAgoraRtcEngine();
@@ -341,8 +359,6 @@ const VoiceVideoCallScreen = ({ navigation, route }) => {
             await agoraEngine.enableLocalVideo(true);
             await agoraEngine.startPreview(); // ✅ MOVE HERE
           }
-
-
           startCallTimer();
           startClockCountdown();
         },
@@ -417,37 +433,58 @@ const VoiceVideoCallScreen = ({ navigation, route }) => {
   };
   const endCall = async () => {
     if (endCallTriggered.current) return;
+
+    console.log("📞 Astrologer ending call");
+
+    // 1️⃣ Mark as ending (but allow emit)
     endCallTriggered.current = true;
-    if (booking?.astrologer?._id) {
-      await axios.post(`${api_url}mobile/call-end-logs`, {
-        consultationId: booking?._id,
-        endById: booking?.astrologer?._id,
-        endedBy: 'astrologer',
-        endTime: getISTDate()
-      },
-        { headers: { "Content-Type": "application/json" } }
-      );
-    }
+
+    // 2️⃣ Log to backend (non-blocking)
+    // if (astrologerId) {
+    //   try {
+    //     await axios.post(
+    //       `${api_url}mobile/call-end-logs`,
+    //       {
+    //         consultationId: booking?._id,
+    //         endById: astrologerId,
+    //         endedBy: "astrologer",
+    //         endTime: getISTDate(),
+    //       },
+    //       { headers: { "Content-Type": "application/json" } }
+    //     );
+    //   } catch (e) {
+    //     console.log("⚠️ call-end-logs failed", e.message);
+    //   }
+    // }
+
+    // 3️⃣ Emit socket event WITHOUT waiting for ACK
     const socket = getSocket();
 
-    if (!socket || !socket.connected) {
-      forceCleanup();
-      return;
+    if (socket?.connected) {
+      socket.emit(
+        "call:end",
+        {
+          channelName,
+          bookingId: booking?._id,
+          endedBy: "astrologer",
+        },
+        (ack) => {
+          if (ack?.alreadyEnded) {
+            console.log("ℹ️ Call already ended on backend");
+          } else if (ack?.success) {
+            console.log("✅ Call ended successfully");
+          } else {
+            console.warn("⚠️ Call end failed", ack);
+          }
+        }
+      );
+
     }
 
-    socket.emit(
-      "call:end",
-      {
-        channelName,
-        bookingId: booking?._id,
-        endedBy: "astrologer",
-      },
-      () => {
-        forceCleanup();
-      }
-    );
-
+    // 4️⃣ Force cleanup locally
+    forceCleanup();
   };
+
 
   const forceCleanup = () => {
     stopAllTimers();
@@ -618,12 +655,26 @@ const VoiceVideoCallScreen = ({ navigation, route }) => {
   function renderVoiceUI() {
     return (
       <LinearGradient colors={["#1a1a2e", "#16213e"]} style={styles.voiceContainer}>
-        <Image
+        {!imageError && route?.params?.booking?.customer?.image ? (
+          <Image
           source={{ uri: getImageUrl(route?.params?.booking?.customer?.image) }}
           style={styles.avatar}
           onError={(e) => {
+            console.log("❌ Image load failed:", e.nativeEvent);
+            setImageError(true);
           }}
         />
+        
+        ) : (
+          <View style={styles.avatarFallback}>
+          <Icon
+            name="account"
+            size={isTablet ? scale(110) : scale(90)}
+            color="#C9A961"
+          />
+        </View>
+        
+        )}
 
         <Text style={styles.voiceName}>
           {route?.params?.booking?.customer?.name}
@@ -714,6 +765,26 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%"
   },
+  // avatar: {
+  //   width: 40,
+  //   height: 40,
+  //   borderRadius: 20,
+  // },
+
+  avatarFallback: {
+    width: isTablet ? scale(200) : scale(160),
+    height: isTablet ? scale(200) : scale(160),
+    borderRadius: isTablet ? scale(100) : scale(80),
+    marginBottom: scale(20),
+  
+    backgroundColor: "rgba(201,169,97,0.12)",
+    justifyContent: "center",
+    alignItems: "center",
+  
+    borderWidth: scale(3),
+    borderColor: "#C9A961",
+  },
+  
 
   waitScreen: {
     flex: 1,

@@ -222,7 +222,7 @@ const AstrologerConsultationList = ({ navigation }) => {
   const tabs = [
     { key: "today", label: "Today", count: todayConsultations.length },
     { key: "future", label: "Upcoming", count: upcomingConsultations.length },
-    // { key: "failed", label: "Expired", count: failedConsultations.length },
+    { key: "failed", label: "Review", count: failedConsultations.length },
     { key: "completed", label: "Completed", count: completedConsultations.length },
   ];
 
@@ -628,7 +628,7 @@ const AstrologerConsultationList = ({ navigation }) => {
                     </TouchableOpacity>
 
                     {/* Change Status WHEN EXPIRED */}
-                    {/* {canChangeStatus && (
+                    {canChangeStatus && (
                       <TouchableOpacity
                         onPress={() => {
                           setStatusBooking(item);
@@ -641,7 +641,7 @@ const AstrologerConsultationList = ({ navigation }) => {
                         <Icon name="clipboard-check-outline" size={18} color="#7F1D1D" />
                         <Text style={styles.statusButtonText}>Change Status</Text>
                       </TouchableOpacity>
-                    )} */}
+                    )}
                   </View>
 
                   {/* RIGHT SIDE – Start Call */}
@@ -891,6 +891,24 @@ const styles = StyleSheet.create({
     fontSize: fontScale(13),
     fontWeight: "600",
   },
+/* ---------------- CHANGE STATUS BUTTON ---------------- */
+statusButton: {
+  flexDirection: "row",
+  alignItems: "center",
+  backgroundColor: "#FFF5E8",
+  borderWidth: 1,
+  borderColor: "#7F1D1D",
+  paddingVertical: scale(7),
+  paddingHorizontal: scale(12),
+  borderRadius: scale(8),
+},
+
+statusButtonText: {
+  marginLeft: scale(6),
+  fontSize: fontScale(13),
+  fontWeight: "600",
+  color: "#7F1D1D",
+},
 
   startButton: {
     backgroundColor: "#7F1D1D",

@@ -18,7 +18,8 @@ import {
   StatusBar,
   Animated,
   Linking,
-  RefreshControl
+  RefreshControl,
+  FlatList
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import SidebarDrawer from '../components/SidebarDrawer';
@@ -29,11 +30,49 @@ const { width, height } = Dimensions.get('screen');
 const AstrologerHome = ({ route }) => {
   const [astroData, setAstrologerData] = useState();
   const [refreshing, setRefreshing] = useState(false);
+  const flatListRef = useRef(null);
+  const [reviews, setReviews] = useState([]);
+  const renderItem = ({ item }) => {
+    return (
+      <View style={styles.reviewCard}>
+        {/* Quote */}
+        {/* <Text style={styles.reviewQuote}>“</Text> */}
+
+        {/* Review Text */}
+        <Text style={styles.reviewText}>
+          {item.reviewText}
+        </Text>
+
+        {/* Divider */}
+        <View style={styles.reviewDivider} />
+
+        {/* Footer */}
+        <View style={styles.reviewFooter}>
+          <View style={styles.reviewAvatar}>
+            <Text style={styles.reviewAvatarText}>
+              {item.customerName?.charAt(0) || 'U'}
+            </Text>
+          </View>
+
+          <View style={{ flex: 1 }}>
+            <Text style={styles.reviewName}>{item.customerName}</Text>
+            <View style={styles.reviewRatingRow}>
+              <Icon name="star" size={14} color="#FACC15" />
+              <Text style={styles.reviewRatingText}>
+                {item.rating || 5}.0
+              </Text>
+            </View>
+          </View>
+        </View>
+      </View>
+    );
+  };
 
   const onRefresh = async () => {
     try {
       setRefreshing(true);
       await fetchUpcomingConsultations();
+      await fetchReviews();
     } catch (e) {
       console.log('Refresh error:', e);
     } finally {
@@ -228,11 +267,31 @@ const AstrologerHome = ({ route }) => {
       console.log("Upcoming Fetch Error:", err);
     }
   };
+  const fetchReviews = async () => {
+    try {
+      const raw = await AsyncStorage.getItem("astrologerData");
+      const astrologer = raw ? JSON.parse(raw) : null;
+      console.log(astrologer?._id, 'astrologer?._id')
+      if (!astrologer?._id) return;
+      const response = await axios.post(
+        `${api_url}admin/get-astrologer-review`,
+        { astrologerId: astrologer?._id },
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+      console.log(response?.data, 'response?.data')
+      if (response?.data?.success) {
+        setReviews(response?.data?.reviews || []);
+      }
+    } catch (err) {
+      console.log("Upcoming Fetch Error:", err);
+    }
+  };
 
 
 
   useEffect(() => {
     fetchUpcomingConsultations();
+    fetchReviews();
   }, []);
 
   // refresh when screen focused
@@ -289,6 +348,22 @@ const AstrologerHome = ({ route }) => {
         useNativeDriver: true,
       }).start();
     }
+  };
+  const youtubeVideos = [
+    { id: 1, url: "https://youtu.be/gJcMN2tIVT8?si=uXBmL-MptKmILxde", title: "Astrology & Real Life Incidents" },
+    { id: 2, url: "https://youtu.be/7k1kigASoig?si=9qv-nn6Z1yTi5kMF", title: "Acharya Ji ne khola crorepati banne ka asli formula" },
+    { id: 3, url: "https://youtu.be/s0TrbB1_qQU?si=P1Sx8mdtEnw_h-5j", title: "Why GenZ is Depressed & Struggling" },
+  ];
+
+  const getYouTubeThumbnail = (url) => {
+    let videoId = null;
+    if (url.includes("youtu.be/")) {
+      videoId = url.split("youtu.be/")[1].split("?")[0];
+    }
+    else if (url.includes("v=")) {
+      videoId = url.split("v=")[1].split("&")[0];
+    }
+    return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
   };
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -363,7 +438,7 @@ const AstrologerHome = ({ route }) => {
                   <Icon name="star" size={16} color="#FFD580" />
                   <Text style={styles.ratingText}>{astroData?.rating}</Text>
                   <Text style={styles.consultationsText}>
-                    AstroBook Expert
+                  {astroData?.title}
                   </Text>
                 </>
               }
@@ -506,7 +581,7 @@ const AstrologerHome = ({ route }) => {
         </View>
 
         {/* Upcoming Consultations (DYNAMIC - next 3) */}
-        
+
 
         {/* Quick Actions */}
         {/* <View style={styles.section}>
@@ -561,22 +636,63 @@ const AstrologerHome = ({ route }) => {
           </View>
 
           <View style={styles.listContainer}>
-  {[
-    "Do not share any personal contact details (phone number, email, social media) with customers.",
-    "Never request favors, gifts, or payments from customers in any form.",
-    "Maintain professionalism at all times to ensure high customer satisfaction and positive reviews.",
-    "Respect customer privacy and platform policies without exception.",
-    "Report any suspicious or inappropriate customer requests immediately via the app.",
-  ].map((text, index) => (
-    <View key={index} style={styles.pointRow}>
-      <Text style={styles.bullet}>•</Text>
-      <Text style={styles.pointText}>{text}</Text>
-    </View>
-  ))}
-</View>
+            {[
+              "Do not share any personal contact details (phone number, email, social media) with customers.",
+              "Never request favors, gifts, or payments from customers in any form.",
+              "Maintain professionalism at all times to ensure high customer satisfaction and positive reviews.",
+              "Respect customer privacy and platform policies without exception.",
+              "Report any suspicious or inappropriate customer requests immediately via the app.",
+            ].map((text, index) => (
+              <View key={index} style={styles.pointRow}>
+                <Text style={styles.bullet}>•</Text>
+                <Text style={styles.pointText}>{text}</Text>
+              </View>
+            ))}
+          </View>
 
         </View>
+        {reviews?.length > 0 &&
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>What Your Users Say</Text>
 
+            <FlatList
+              ref={flatListRef}
+              data={reviews}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              snapToInterval={width - 48 + 16} // card width + margin
+              decelerationRate="fast"
+              contentContainerStyle={{ paddingHorizontal: 16 }}
+              renderItem={renderItem}
+              keyExtractor={(item, index) => item._id || index.toString()}
+            />
+
+          </View>
+        }
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Watch Our Videos</Text>
+
+          <FlatList
+            data={youtubeVideos}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={styles.videoCard}
+                onPress={() => Linking.openURL(item.url)}
+              >
+                <Image
+                  source={{ uri: getYouTubeThumbnail(item.url) }}
+                  style={styles.videoThumbnail}
+                />
+                <Text style={styles.videoTitle} numberOfLines={2}>
+                  {item.title}
+                </Text>
+              </TouchableOpacity>
+            )}
+          />
+        </View>
         {/* Performance Insights */}
         {/* <View style={styles.section}>
           <Text style={styles.sectionTitle}>This Month's Performance</Text>
@@ -715,6 +831,93 @@ const AstrologerHome = ({ route }) => {
 export default AstrologerHome;
 
 const styles = StyleSheet.create({
+  /* =====================
+   REVIEWS SECTION
+===================== */
+/* =====================
+   REVIEWS SECTION
+===================== */
+
+reviewCard: {
+  width: width - 48,
+  backgroundColor: '#FFFFFF',
+  borderRadius: 18,
+  padding: 20,
+  marginRight: 16,
+  marginVertical: 10,
+
+  // Android shadow
+  elevation: 2,
+
+  // iOS shadow
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 1 },
+  shadowOpacity: 0.1,
+  shadowRadius: 3,
+},
+
+reviewText: {
+  fontSize: 14,
+  color: '#444',
+  lineHeight: 22,
+  fontStyle: 'italic',
+},
+
+reviewDivider: {
+  height: 1,
+  backgroundColor: '#F0E8DC',
+  marginVertical: 14,
+},
+
+reviewFooter: {
+  flexDirection: 'row',
+  alignItems: 'center',
+},
+
+reviewAvatar: {
+  width: 42,
+  height: 42,
+  borderRadius: 21,
+  backgroundColor: '#FFF5E6',
+  justifyContent: 'center',
+  alignItems: 'center',
+  marginRight: 12,
+},
+
+reviewAvatarText: {
+  fontSize: 17,
+  fontWeight: '700',
+  color: '#7F1D1D',
+},
+
+reviewName: {
+  fontSize: 14,
+  fontWeight: '600',
+  color: '#2C1810',
+},
+
+reviewRatingRow: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  marginTop: 4,
+},
+
+reviewRatingText: {
+  fontSize: 12,
+  color: '#777',
+  marginLeft: 4,
+},
+
+ 
+  reviewQuote: {
+    fontSize: 42,
+    color: '#7F1D1D',
+    lineHeight: 40,
+    marginBottom: -10,
+    fontWeight: '700',
+  },
+
+ 
   card: {
     flexDirection: 'row',
     backgroundColor: '#fff',
@@ -778,6 +981,16 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 6,
   },
+
+
+  reviewText: {
+    fontSize: 14,
+    color: '#444',
+    lineHeight: 20,
+    marginBottom: 16,
+    fontStyle: 'italic',
+  },
+
   specialRating: {
     flexDirection: 'row',
   },
@@ -1175,21 +1388,42 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     marginBottom: 8,
   },
-  
+
   bullet: {
     color: "#fff",
     fontSize: 15,
     lineHeight: 22,
     marginRight: 8,
   },
-  
+
   pointText: {
     flex: 1,
     color: "#fff",
     fontSize: 15,
     lineHeight: 22,
   },
-  
+  videoCard: {
+    width: 200,
+    marginRight: 12,
+    marginLeft: 4,
+    marginVertical: 4,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    overflow: 'hidden',
+    elevation: 2,
+  },
+
+  videoThumbnail: {
+    width: '100%',
+    height: 120,
+  },
+
+  videoTitle: {
+    padding: 10,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#2C1810',
+  },
   listContainer: {
     marginTop: 12,
   },

@@ -31,7 +31,7 @@ const SplashScreen = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.container}>
       <Image
-        source={require('../assets/onboardingscreenNew.jpeg')}
+        source={require('../assets/images/splashAstro.png')}
         style={styles.splashImage}
       />
     </SafeAreaView>

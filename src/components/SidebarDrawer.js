@@ -10,10 +10,12 @@ import {
   ScrollView,
   Alert,
   StyleSheet,
+  Image,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width, height } = Dimensions.get('screen');
 
@@ -24,22 +26,22 @@ const SidebarDrawer = ({ visible, onClose, astrologerData }) => {
   const [drawerVisible, setDrawerVisible] = useState(visible);
   const [supportModalVisible, setSupportModalVisible] = useState(false);
 
-React.useEffect(() => {
-  if (visible) {
-    setDrawerVisible(true);
-    Animated.timing(slideAnim, {
-      toValue: 0,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-  } else {
-    Animated.timing(slideAnim, {
-      toValue: -width * 0.8,
-      duration: 300,
-      useNativeDriver: true,
-    }).start(() => setDrawerVisible(false));
-  }
-}, [visible]);
+  React.useEffect(() => {
+    if (visible) {
+      setDrawerVisible(true);
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(slideAnim, {
+        toValue: -width * 0.8,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => setDrawerVisible(false));
+    }
+  }, [visible]);
 
 
   const handleLogout = async () => {
@@ -69,42 +71,49 @@ React.useEffect(() => {
     { title: 'Logout', icon: 'logout', color: '#DC2626' },
   ];
 
-const handleItemPress = (item) => {
-  if (item.title === 'Logout') {
-    closeDrawerWithCallback(handleLogout);
-    return;
-  }
+  const handleItemPress = (item) => {
+    if (item.title === 'Logout') {
+      closeDrawerWithCallback(handleLogout);
+      return;
+    }
 
-  if (item.title === 'Contact Us') {
-    closeDrawerWithCallback(() => {
-      setSupportModalVisible(true);
+    if (item.title === 'Contact Us') {
+      closeDrawerWithCallback(() => {
+        setSupportModalVisible(true);
+      });
+      return;
+    }
+
+    if (item.route) {
+      closeDrawerWithCallback(() => {
+        navigation.navigate(item.route);
+      });
+    }
+  };
+
+
+  const closeDrawerWithCallback = (callback) => {
+    // Tell parent to hide drawer
+    onClose();
+
+    Animated.timing(slideAnim, {
+      toValue: -width * 0.8,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      setDrawerVisible(false);
+      if (callback) callback(); // run only AFTER drawer is fully closed
     });
-    return;
-  }
+  };
 
-  if (item.route) {
-    closeDrawerWithCallback(() => {
-      navigation.navigate(item.route);
-    });
-  }
-};
-
-
-const closeDrawerWithCallback = (callback) => {
-  // Tell parent to hide drawer
-  onClose(); 
-
-  Animated.timing(slideAnim, {
-    toValue: -width * 0.8,
-    duration: 300,
-    useNativeDriver: true,
-  }).start(() => {
-    setDrawerVisible(false);
-    if (callback) callback(); // run only AFTER drawer is fully closed
-  });
-};
-
-
+  const BASE_URL = 'https://alb-web-assets.s3.ap-south-1.amazonaws.com/acharyalavbhushan/';
+  const getImageUrl = (path) => {
+    if (!path) return null;
+    if (path.startsWith('http')) {
+      return `${path}?format=jpg`;
+    }
+    return `${BASE_URL}${path}?format=jpg`;
+  };
 
   if (!drawerVisible) return null;
 
@@ -133,7 +142,7 @@ const closeDrawerWithCallback = (callback) => {
             <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()} style={{ flex: 1 }}>
               <ScrollView>
                 {/* Header */}
-                <View
+                <SafeAreaView
                   style={{
                     backgroundColor: '#7F1D1D',
                     paddingTop: 40,
@@ -156,9 +165,16 @@ const closeDrawerWithCallback = (callback) => {
                         borderColor: '#FFFFFF',
                       }}
                     >
-                      <Text style={{ fontSize: 28, fontWeight: '700', color: '#7F1D1D' }}>
-                        {astrologerData?.astrologerName?.charAt(0) || 'A'}
-                      </Text>
+                      {astrologerData?.profileImage ?
+                        <Image
+                          source={{ uri: getImageUrl(astrologerData?.profileImage) }}
+                          style={styles.profileImage}
+                        /> :
+                        <Text style={{ fontSize: 28, fontWeight: '700', color: '#7F1D1D' }}>
+                          {astrologerData?.astrologerName?.charAt(0) || 'A'}
+                        </Text>
+                      }
+
                     </View>
                   </View>
                   <Text style={{ fontSize: 18, fontWeight: '700', color: '#FFFFFF' }}>
@@ -183,7 +199,7 @@ const closeDrawerWithCallback = (callback) => {
                       Premium Astrologer
                     </Text>
                   </View>
-                </View>
+                </SafeAreaView>
 
                 {/* Menu */}
                 <View style={{ paddingTop: 16 }}>
@@ -344,6 +360,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#7F1D1D',
     fontWeight: '600',
+  },
+  profileImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 3,
+    borderColor: '#FFD580',
   },
   value: {
     fontSize: 14,

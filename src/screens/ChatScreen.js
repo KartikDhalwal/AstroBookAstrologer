@@ -20,14 +20,19 @@ import {
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { initSocket, getSocket } from "../services/socket";
 
+import { Alert } from "react-native";
 
 import { api_url } from "../config/Constants";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { width, height } = Dimensions.get("window");
 
 
 export default function ChatScreen({ route }) {
     const { astrologer: routeAstrologer, userData: routeUser, booking: bookingData } = route?.params || {};
+    console.log({bookingData})
+    const insets = useSafeAreaInsets();
+    const sessionEndedRef = useRef(false);
 
     const [messages, setMessages] = useState([]);
     const [inputText, setInputText] = useState("");
@@ -35,11 +40,25 @@ export default function ChatScreen({ route }) {
     const [userTyping, setUserTyping] = useState(false);
     const [loadingHistory, setLoadingHistory] = useState(true);
     const [inputHeight, setInputHeight] = useState(120);
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
+    useEffect(() => {
+        const showSub = Keyboard.addListener("keyboardDidShow", (e) => {
+            setKeyboardHeight(e.endCoordinates.height);
+        });
+
+        const hideSub = Keyboard.addListener("keyboardDidHide", () => {
+            setKeyboardHeight(0);
+        });
+
+        return () => {
+            showSub.remove();
+            hideSub.remove();
+        };
+    }, []);
 
     // ⏳ TIMER STATES
     const [remainingTime, setRemainingTime] = useState("");
     const [chatDisabled, setChatDisabled] = useState(false);
-    console.log({ routeUser })
     const userData = routeUser || {
         _id: "user_123",
         customerName: "User",
@@ -59,44 +78,76 @@ export default function ChatScreen({ route }) {
     const typingTimeoutRef = useRef(null);
     const typingDotAnim = useRef(new Animated.Value(0)).current;
 
+    const hasScrolledInitially = useRef(false);
 
     useEffect(() => {
-        if (!bookingData?.time) return;
-
-        const timeRange = bookingData.time.split("-");
-        if (timeRange.length !== 2) return;
-
-        const start = timeRange[0].trim();
-        const end = timeRange[1].trim();
-
-        const [endH, endM] = end.split(":").map(Number);
-
-        const endTime = new Date();
-        endTime.setHours(endH);
-        endTime.setMinutes(endM);
-        endTime.setSeconds(0);
-
-        const timer = setInterval(() => {
-            const now = new Date();
-            const diff = endTime - now;
-
-            if (diff <= 0) {
-                setRemainingTime("00:00");
-                setChatDisabled(true);
-                clearInterval(timer);
-                return;
+        if (!bookingData?.fromTime || !bookingData?.toTime || !bookingData?.date) {
+          console.log("❌ Missing booking time data");
+          return;
+        }
+      
+        console.log("⏳ Booking timer started");
+      
+        const [endH, endM] = bookingData.toTime.split(":").map(Number);
+      
+        const endTime = new Date(bookingData.date);
+        endTime.setHours(endH, endM, 0, 0);
+      
+        // ⛔ If end time already passed today, end immediately
+        if (endTime <= new Date()) {
+            setRemainingTime("00:00");
+            setChatDisabled(true);
+          
+            if (!sessionEndedRef.current) {
+              sessionEndedRef.current = true;
+              Alert.alert(
+                "Session Ended",
+                "Session timing has ended.",
+                [{ text: "OK" }],
+                { cancelable: false }
+              );
             }
-
-            const minutes = Math.floor(diff / 60000);
-            const seconds = Math.floor((diff % 60000) / 1000);
-
-            setRemainingTime(
-                `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
-            );
+          
+            return;
+          }
+          
+      
+        const timer = setInterval(() => {
+          const now = new Date();
+          const diff = endTime - now;
+      
+          if (diff <= 0) {
+            setRemainingTime("00:00");
+            setChatDisabled(true);
+            clearInterval(timer);
+          
+            if (!sessionEndedRef.current) {
+              sessionEndedRef.current = true;
+          
+              Alert.alert(
+                "Session Ended",
+                "Session timing has ended.",
+                [{ text: "OK" }],
+                { cancelable: false }
+              );
+            }
+          
+            return;
+          }
+          
+      
+          const minutes = Math.floor(diff / 60000);
+          const seconds = Math.floor((diff % 60000) / 1000);
+      
+          setRemainingTime(
+            `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
+          );
         }, 1000);
-
+      
         return () => clearInterval(timer);
-    }, [bookingData]);
+      }, [bookingData?.fromTime, bookingData?.toTime, bookingData?.date]);
+      
+      
 
     // TYPING ANIMATION
     useEffect(() => {
@@ -134,16 +185,19 @@ export default function ChatScreen({ route }) {
             const data = response.data;
 
             if (data && data.success) {
-                const formatted = (data.messages || []).map((m) => ({
-                    id: m.messageId || m._id || `${Date.now()}`,
-                    text: m.text || m.message || "",
-                    senderId: m.senderId,
-                    receiverId: m.receiverId,
-                    timestamp: m.timestamp || m.createdAt,
-                    status: m.status || "sent",
-                }));
+                const formatted = (data.messages || [])
+                    .map((m) => ({
+                        id: m.messageId || m._id || `${Date.now()}`,
+                        text: m.text || m.message || "",
+                        senderId: m.senderId,
+                        receiverId: m.receiverId,
+                        timestamp: m.timestamp || m.createdAt,
+                        status: m.status || "sent",
+                    }))
+                    .reverse(); // 👈 IMPORTANT
+
                 setMessages(formatted);
-                setTimeout(scrollToBottom, 120);
+                // setTimeout(() => scrollToBottom(false), 50);
             }
         } catch (err) {
             console.error(err);
@@ -217,6 +271,7 @@ export default function ChatScreen({ route }) {
 
     const handleReceiveMessage = (message) => {
         if (message.senderId === astrologerId) return;
+
         const formatted = {
             id: message.messageId || message.id,
             text: message.text,
@@ -226,10 +281,11 @@ export default function ChatScreen({ route }) {
             status: message.status || "delivered",
         };
 
-        setMessages(prev => [...prev, formatted]);
+        setMessages((prev) => [formatted, ...prev]); // 👈 prepend
         setUserTyping(false);
-        scrollToBottom();
     };
+
+
 
     const updateMessageStatus = (id, status) => {
         setMessages(prev =>
@@ -266,24 +322,30 @@ export default function ChatScreen({ route }) {
         };
 
         // optimistic UI
-        setMessages(prev => [
-            ...prev,
+        setMessages((prev) => [
             {
                 ...newMessage,
                 id: tempId,
-                status: 'sent',
+                status: "sent",
             },
+            ...prev, // 👈 prepend
         ]);
 
+
         setInputText('');
-        scrollToBottom();
+        // scrollToBottom();
 
         const socket = getSocket();
         if (socket?.connected) {
             socket.emit('send_message_normal', newMessage);
         }
     };
-
+    useEffect(() => {
+        if (chatDisabled) {
+          setInputText("");
+        }
+      }, [chatDisabled]);
+      
 
 
     const handleTyping = (txt) => {
@@ -311,11 +373,6 @@ export default function ChatScreen({ route }) {
         }, 2000);
     };
 
-    const scrollToBottom = () => {
-        setTimeout(() => {
-            flatListRef.current?.scrollToEnd({ animated: true });
-        }, 100);
-    };
 
     const formatTime = (ts) => {
         const d = new Date(ts);
@@ -378,119 +435,113 @@ export default function ChatScreen({ route }) {
     // HEADER
     const renderHeader = () => (
         <View style={styles.header}>
-            <View style={styles.headerContent}>
-                <View style={styles.headerLeft}>
-                    <Image
-                        source={{ uri: Imguri }}
-                        style={styles.headerAvatar}
-                    />
-                    <View style={styles.headerInfo}>
-                        <Text style={styles.headerName}>{userData.name}</Text>
-
-                        {/* 🔥 TIMER ADDED HERE */}
-                        {/* <Text style={styles.headerStatus}>
-                            {chatDisabled
-                                ? "Session Ended"
-                                : remainingTime
-                                    ? `Ends in ${remainingTime}`
-                                    : userTyping
-                                        ? "typing..."
-                                        : userData.status === "online"
-                                            ? "Active now"
-                                            : "Offline"}
-                        </Text> */}
-                    </View>
-                </View>
+          <View style={styles.headerContent}>
+            <View style={styles.headerLeft}>
+              <Image source={{ uri: Imguri }} style={styles.headerAvatar} />
+      
+              <View style={styles.headerInfo}>
+                <Text style={styles.headerName}>
+                  {userData.customerName || userData.name}
+                </Text>
+      
+                {/* ⏳ ONLY TIME */}
+                <Text style={styles.headerStatus}>
+                  Ends in {remainingTime || "00:00"}
+                </Text>
+              </View>
             </View>
+          </View>
         </View>
-    );
+      );
+      
+      
 
     return (
-        <View style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#7F1D1D" />
-
+        <SafeAreaView style={{ flex: 1, backgroundColor: "#FEF7ED" }} edges={['top', 'bottom']}>
+            {/* <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
+                keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
+            > */}
+            {/* HEADER */}
             {renderHeader()}
 
-            <KeyboardAvoidingView
-                style={{ flex: 1 }}
-                behavior={Platform.OS === "ios" ? "padding" : "padding"}
-                keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 70}
-            >
-
-
+            {/* CHAT AREA */}
+            <View style={{ flex: 1 }}>
                 <ImageBackground
                     source={require("../assets/logoBlack.png")}
-                    style={styles.chatBg}
+                    style={StyleSheet.absoluteFillObject}
                     imageStyle={styles.watermark}
-                >                    {loadingHistory ? (
-                    <ActivityIndicator size="large" color="#db9a4a" />
+                />
+
+                {loadingHistory ? (
+                    <ActivityIndicator size="large" color="#7F1D1D" />
                 ) : (
-                    <FlatList
-                        data={messages}
-                        ref={flatListRef}
-                        keyExtractor={(item) => item.id}
-                        renderItem={renderMessage}
-                        onContentSizeChange={scrollToBottom}
-                        showsVerticalScrollIndicator={false}
-                        contentContainerStyle={[
-                            styles.messagesList,
-                            { paddingBottom: 20 },
-                        ]}
-                    />
+                    <View style={{ flex: 1 }}>
+
+                        <FlatList
+                            ref={flatListRef}
+                            data={messages}
+                            inverted
+                            keyExtractor={(item) => item.id}
+                            renderItem={renderMessage}
+                            showsVerticalScrollIndicator={false}
+                            contentContainerStyle={[
+                                styles.messagesList,
+                                { paddingTop: 20 },
+                            ]}
+                            keyboardShouldPersistTaps="handled"
+                        />
+                    </View>
 
                 )}
-                </ImageBackground>
+            </View>
 
-                {/* INPUT AREA WITH DISABLE LOGIC */}
-                + <View style={[styles.inputContainer, { paddingBottom: Platform.OS === "android" ? 8 : 24 }]}>
-                    <View style={styles.inputShadow}>
-                        <View style={styles.inputWrapper}>
-                            <View style={styles.inputBox}>
-                                <TextInput
-                                    style={[styles.input, { height: Math.max(35, inputHeight) }]}
-                                    placeholder="Type your message..."
-                                    placeholderTextColor="#9CA3AF"
-                                    value={inputText}
-                                    onChangeText={handleTyping}
-                                    editable={!chatDisabled}
-                                    multiline
-                                    scrollEnabled
-                                    onContentSizeChange={(e) =>
-                                        setInputHeight(
-                                            Math.min(120, e.nativeEvent.contentSize.height + 16)
-                                        )
-                                    }
-                                />
-                            </View>
+            {/* INPUT */}
+            <View
+                style={[
+                    styles.inputContainer,
+                    {
+                        paddingBottom: Math.max(insets.bottom, 8),
+                        marginBottom: keyboardHeight - 40, 
+                    },
+                ]}
+            >
+                <View style={styles.inputWrapper}>
+                <TextInput
+  style={styles.input}
+  placeholder={
+    chatDisabled ? "Session has been ended" : "Type your message…"
+  }
+  placeholderTextColor="#9CA3AF"
+  value={inputText}
+  onChangeText={handleTyping}
+  editable={!chatDisabled}
+  multiline
+/>
 
-                            <TouchableOpacity
-                                style={[
-                                    styles.sendButton,
-                                    (!inputText.trim() || chatDisabled) &&
-                                    styles.sendButtonDisabled,
-                                ]}
-                                onPress={handleSendMessage}
-                                disabled={!inputText.trim() || chatDisabled}
-                            >
-                                <Icon name="send" size={20} color="#fff" />
-                            </TouchableOpacity>
-                        </View>
-                    </View>
+                    <TouchableOpacity
+                        style={[
+                            styles.sendButton,
+                            (!inputText.trim() || chatDisabled) &&
+                            styles.sendButtonDisabled,
+                        ]}
+                        onPress={handleSendMessage}
+                        disabled={!inputText.trim() || chatDisabled}
+                    >
+                        <Icon name="send" size={20} color="#fff" />
+                    </TouchableOpacity>
                 </View>
-
-
-            </KeyboardAvoidingView>
-        </View>
+            </View>
+            {/* </KeyboardAvoidingView> */}
+        </SafeAreaView>
     );
+
 }
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#FEF7ED" },
-    input: {
-        fontSize: 15,
-        paddingVertical: 8,
-        textAlignVertical: "top", // ANDROID FIX
-    },
+
     myMessageTime: {
         color: "rgba(255,255,255,0.75)"
     },
@@ -500,17 +551,55 @@ const styles = StyleSheet.create({
     inputContainer: {
         backgroundColor: "#fff",
         paddingHorizontal: 12,
-        paddingTop: 8,
-        paddingBottom: Platform.OS === "ios" ? 24 : 12,
+        paddingVertical: 8,
         borderTopWidth: 1,
         borderTopColor: "#E5E7EB",
     },
+
+    inputWrapper: {
+        flexDirection: "row",
+        alignItems: "flex-end",
+        backgroundColor: "#F9FAFB",
+        borderRadius: 24,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+    },
+
+    input: {
+        flex: 1,
+        fontSize: 15,
+        minHeight: 40,
+        maxHeight: 120,
+        paddingVertical: 10,
+        paddingRight: 10,
+        color: "#111827",
+        textAlignVertical: "top",
+    },
+
+
+    sendButton: {
+        width: 42,
+        height: 42,
+        borderRadius: 21,
+        backgroundColor: "#7F1D1D",
+        justifyContent: "center",
+        alignItems: "center",
+        marginLeft: 6,
+    },
+
+    sendButtonDisabled: {
+        backgroundColor: "#9CA3AF",
+    },
+
 
     header: {
         backgroundColor: "#7F1D1D",
         paddingTop: Platform.OS === "ios" ? 50 : 15,
         paddingBottom: 16,
         elevation: 8,
+        marginTop: -30
     },
     headerContent: { paddingHorizontal: 16 },
     headerLeft: { flexDirection: "row", alignItems: "center" },
@@ -523,7 +612,12 @@ const styles = StyleSheet.create({
     },
     headerInfo: { marginLeft: 14 },
     headerName: { fontSize: 19, fontWeight: "700", color: "#fff" },
-    headerStatus: { fontSize: 13, color: "#fff", marginTop: 2 },
+    headerStatus: {
+        fontSize: 13,
+        color: "rgba(255,255,255,0.85)",
+        marginTop: 2,
+      },
+      
 
     messagesContainer: { flex: 1 },
     messagesList: { paddingHorizontal: 16, paddingVertical: 20 },
@@ -557,26 +651,7 @@ const styles = StyleSheet.create({
 
 
     inputShadow: { elevation: 4 },
-    inputWrapper: {
-        flexDirection: "row",
-        alignItems: "flex-end",
-        backgroundColor: "#F9FAFB",
-        borderRadius: 26,
-        paddingVertical: 2,
-        borderWidth: 1,
-        borderColor: "#E5E7EB",
-    },
+
     inputBox: { flex: 1, paddingHorizontal: 14, marginTop: 10 },
 
-    sendButton: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        backgroundColor: "#7F1D1D",
-        justifyContent: "center",
-        alignItems: "center",
-        marginRight: 4,
-        marginBottom: 10
-    },
-    sendButtonDisabled: { backgroundColor: "#A1A1A1" },
 });

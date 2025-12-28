@@ -6,6 +6,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import SplashScreen from '../components/splash';
 import LoginScreen from '../screens/LoginScreen'; // create this file if not yet
 import BottomTabs from '../navigation/BottomTabs'; // contains Home, Profile, etc.
+import ChatScreen from '../screens/ChatScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -15,6 +16,7 @@ export default function AppNavigator() {
       <Stack.Navigator initialRouteName="Splash" screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Splash" component={SplashScreen} />
         <Stack.Screen name="Login" component={LoginScreen} />
+        <Stack.Screen name="ChatScreen" component={ChatScreen} />
         {/* <Stack.Screen name="Home" component={BottomTabs} /> */}
       </Stack.Navigator>
     </NavigationContainer>

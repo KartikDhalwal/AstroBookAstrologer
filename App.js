@@ -7,6 +7,7 @@ import LoginScreen from './src/screens/LoginScreen';
 import BottomTabs from './src/navigation/BottomTabs';
 import { useCallState } from "./src/context/CallStateContext";
 import Toast from "react-native-toast-message";
+import ChatScreen from './src/screens/ChatScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -36,8 +37,13 @@ export default function App() {
           component={BottomTabs} 
           options={{ headerShown: false }}
         />
+        <Stack.Screen 
+          name="ChatScreen" 
+          component={ChatScreen} 
+          options={{ headerShown: true,title:'Connect with Chat' }}
+        />
 
-      </Stack.Navigator>
+        </Stack.Navigator>
     </NavigationContainer>
       {callUI}
     <Toast />

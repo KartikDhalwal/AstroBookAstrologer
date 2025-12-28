@@ -7,6 +7,7 @@ import HomeStack from '../stack/HomeStack';
 import ConsultationStack from '../stack/ConsultationStack';
 import EarningsStack from '../stack/EarningsStack';
 import ProfileStack from '../stack/ProfileStack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const Tab = createBottomTabNavigator();
 
@@ -21,33 +22,31 @@ const ICON_SIZE = isTablet ? 28 : isSmallDevice ? 20 : 24;
 const LABEL_SIZE = isTablet ? 14 : 12;
 
 export default function BottomTabs() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
 
-        // 🎨 Colors
         tabBarActiveTintColor: '#000',
         tabBarInactiveTintColor: '#b3b1b1',
 
-        // 📦 Tab bar styling
         tabBarStyle: {
-          height: TAB_HEIGHT + 8,
-          paddingBottom: Platform.OS === 'android' ? 6 : 0,
+          height: TAB_HEIGHT + insets.bottom, // ✅ key fix
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 8,
           paddingTop: 6,
           backgroundColor: '#fff',
           elevation: 12,
           borderTopWidth: 0,
         },
 
-        // 🏷 Label styling
         tabBarLabelStyle: {
           fontSize: LABEL_SIZE,
           marginBottom: 4,
         },
         tabBarAllowFontScaling: false,
 
-        // 🎯 Icons
         tabBarIcon: ({ color }) => {
           let iconName = 'home-outline';
 
@@ -60,18 +59,35 @@ export default function BottomTabs() {
         },
       })}
     >
-      <Tab.Screen
-        name="Home"
-        component={HomeStack}
+      <Tab.Screen name="Home" component={HomeStack}
         listeners={({ navigation }) => ({
-          tabPress: () => {
+          tabPress: (e) => {
             navigation.navigate('Home', { screen: 'Home' });
-          },
+          }
         })}
       />
-      <Tab.Screen name="Consultations" component={ConsultationStack} />
-      <Tab.Screen name="Earnings" component={EarningsStack} />
-      <Tab.Screen name="Profile" component={ProfileStack} />
+      <Tab.Screen name="Consultations" component={ConsultationStack}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            navigation.navigate('Consultations', { screen: 'Consultations' });
+          }
+        })}
+      />
+      <Tab.Screen name="Earnings" component={EarningsStack}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            navigation.navigate('Earnings', { screen: 'Earnings' });
+          }
+        })}
+      />
+      <Tab.Screen name="Profile" component={ProfileStack}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            navigation.navigate('Profile', { screen: 'Profile' });
+          }
+        })}
+      />
     </Tab.Navigator>
   );
 }
+

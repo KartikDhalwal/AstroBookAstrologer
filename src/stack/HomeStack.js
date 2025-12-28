@@ -53,11 +53,13 @@ export default function HomeStack() {
                 component={AvailabilityStatusScreen}
                 options={{ title: "Availability Status" }}
             />
-            <Stack.Screen
+            {/* <Stack.Screen
                 name="ChatScreen"
                 component={ChatScreen}
-                options={{ title: "Connect with chat" }}
-            />
+                options={{
+                    title: "Connect with chat", headerShown: true
+                }}
+            /> */}
             <Stack.Screen
                 name="VoiceVideoCallScreen"
                 component={VoiceVideoCallScreen}

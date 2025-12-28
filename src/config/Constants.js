@@ -1,9 +1,8 @@
-import { PixelRatio } from 'react-native';
 
 
 export const base_url = "https://api.astrobook.co.in/";
 export const img_url = "https://api.astrobook.co.in/uploads/";
-export const SUPER_BASE_URL = "https://alb.gennextit.com";
+export const SUPER_BASE_URL = "https://api.acharyalavbhushan.com";
 // export const SUPER_BASE_URL = "http://192.168.1.16:4000"
 export const api_url = `${SUPER_BASE_URL}/api/`;
 

@@ -57,9 +57,11 @@ const getImageUrl = (path) => {
 };
 
   return (
-    <View style={styles.safe}>
-      <StatusBar backgroundColor="#7F1D1D" barStyle="dark-content" />
-
+<SafeAreaView style={styles.safe} edges={[]}>
+  <StatusBar
+    backgroundColor="#7F1D1D"
+    barStyle="light-content"
+  />
       {/* HEADER + EDIT BUTTON */}
       <View style={styles.topHeader}>
         {/* <Text style={styles.pageTitle}>Profile View</Text> */}
@@ -85,14 +87,15 @@ const getImageUrl = (path) => {
             <View style={{ marginLeft: 16, flex: 1 }}>
               <Text style={styles.name}>{profile.astrologerName}</Text>
               <Text style={styles.tagline}>
-                {profile.short_bio || profile.title || 'AstroBook Astrologer'}
+                {profile.title || profile.short_bio || 'AstroBook Astrologer'}
               </Text>
-
-              {/* <View style={styles.ratingRow}>
+              {profile.rating !== 0 &&
+              
+              <View style={styles.ratingRow}>
                 <Icon name="star" size={18} color="#FFD580" />
                 <Text style={styles.ratingText}>{profile.rating || 0}</Text>
-                <Text style={styles.ratingCount}>({profile.ratingCount})</Text>
-              </View> */}
+              </View>
+              }
             </View>
           </View>
         </View>
@@ -171,7 +174,7 @@ const getImageUrl = (path) => {
 
         <View style={{ height: 60 }} />
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -218,8 +221,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    // padding: 16,
     paddingBottom: 6,
+    height: 0,
+    padding: 0,
   },
 
   pageTitle: {

@@ -26,11 +26,12 @@ export default function ConsultationStack() {
         component={VoiceVideoCallScreen}
         options={{ title: "Connect",headerShown: false }}
       />
-      <Stack.Screen 
+      {/* <Stack.Screen 
         name="ChatScreen" 
         component={ChatScreen}
-        options={{ title: "Connect with Chat" }}
-      />
+        options={{ title: "Connect with Chat" ,headerShown: true,
+          presentation: 'card', }}
+      /> */}
       <Stack.Screen 
         name="KundliDetailScreen" 
         component={KundliDetailScreen}
