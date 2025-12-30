@@ -98,7 +98,16 @@ const AstrologerConsultationList = ({ navigation }) => {
     intervalRef.current = setInterval(updateTime, 10000);
     return () => clearInterval(intervalRef.current);
   }, []);
-
+  const sortByDateTimeAsc = (list) => {
+    return [...list].sort((a, b) => {
+      // Combine date + fromTime into full Date objects
+      const aDate = new Date(`${a.date}T${a.fromTime}:00`);
+      const bDate = new Date(`${b.date}T${b.fromTime}:00`);
+  
+      return aDate.getTime() - bDate.getTime(); // ASC
+    });
+  };
+  
   /* -------------------------------------------------------------------- */
   /*                              SEARCH FILTER                           */
   /* -------------------------------------------------------------------- */
@@ -227,14 +236,16 @@ const AstrologerConsultationList = ({ navigation }) => {
   ];
 
 
-  const currentList =
+  const currentList = sortByDateTimeAsc(
     filterType === "today"
       ? todayConsultations
       : filterType === "future"
         ? upcomingConsultations
         : filterType === "failed"
           ? failedConsultations
-          : completedConsultations;
+          : completedConsultations
+  );
+  
 
 
   /* -------------------------------------------------------------------- */

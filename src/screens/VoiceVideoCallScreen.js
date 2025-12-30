@@ -30,6 +30,7 @@ import { useCallState } from "../context/CallStateContext";
 import MiniFloatingWindow from "../MiniFloatingWindow";
 import { initSocket, getSocket } from "../services/socket";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import InCallManager from "react-native-incall-manager";
 
 let agoraEngine = null;
 
@@ -277,7 +278,11 @@ const VoiceVideoCallScreen = ({ navigation, route }) => {
     return () => {
       mounted = false;
       stopAllTimers();
-      if (!isMinimizeRef.current) leaveChannel();
+      if (!isMinimizeRef.current) {
+        InCallManager.stop(); // 🔥 SAFETY
+
+        leaveChannel();
+      }
     };
   }, []);
 
@@ -357,11 +362,22 @@ const VoiceVideoCallScreen = ({ navigation, route }) => {
           if (isVideo) {
             await agoraEngine.enableVideo();
             await agoraEngine.enableLocalVideo(true);
-            await agoraEngine.startPreview(); // ✅ MOVE HERE
+            await agoraEngine.startPreview();
           }
+        
+          // 🔥 START CALL SESSION (screen awake + audio focus)
+          InCallManager.start({
+            media: isVideo ? "video" : "audio",
+          });
+        
+          // Default routing
+          InCallManager.setForceSpeakerphoneOn(isVideo);
+          setIsSpeakerOn(isVideo);
+        
           startCallTimer();
           startClockCountdown();
         },
+        
 
 
         onUserJoined: (_, uid) => {
@@ -417,9 +433,11 @@ const VoiceVideoCallScreen = ({ navigation, route }) => {
   };
 
   const toggleSpeaker = () => {
-    agoraEngine?.setEnableSpeakerphone(!isSpeakerOn);
-    setIsSpeakerOn(!isSpeakerOn);
+    const enable = !isSpeakerOn;
+    InCallManager.setForceSpeakerphoneOn(enable);
+    setIsSpeakerOn(enable);
   };
+  
 
   const toggleCamera = () => {
     agoraEngine?.switchCamera();
@@ -488,18 +506,23 @@ const VoiceVideoCallScreen = ({ navigation, route }) => {
 
   const forceCleanup = () => {
     stopAllTimers();
+  
+    try {
+      InCallManager.stop(); // 🔥 VERY IMPORTANT
+    } catch (e) {}
+  
     leaveChannel();
-
+  
     setIsMinimized(false);
     setCallUI(null);
     setIsCallActive(false);
-
-    // CLEAR GLOBALS
+  
     setRemoteUid(null);
     setTokenInfo(null);
-
+  
     navigation.goBack();
   };
+  
 
   const leaveChannel = () => {
     try {
@@ -847,7 +870,7 @@ const styles = StyleSheet.create({
 
   controlsContainer: {
     position: "absolute",
-    bottom: scale(40),
+    bottom: scale(60),
     width: "100%",
     paddingHorizontal: scale(20),
   },

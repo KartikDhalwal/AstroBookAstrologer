@@ -21,11 +21,11 @@ export default function ConsultationStack() {
         component={AstrologerConsultationList}
         options={{ title: "Consultations" }}
       />
-      <Stack.Screen 
+      {/* <Stack.Screen 
         name="VoiceVideoCallScreen" 
         component={VoiceVideoCallScreen}
         options={{ title: "Connect",headerShown: false }}
-      />
+      /> */}
       {/* <Stack.Screen 
         name="ChatScreen" 
         component={ChatScreen}

@@ -474,14 +474,11 @@ const AstrologerHome = ({ route }) => {
               const startStr = item.fromTime;
               const endStr = item.toTime;
               const now = new Date();
-              console.log(startStr, endStr, now)
 
               const bookingDate = new Date(item.date || now.toISOString());
-              console.log(item.consultationType)
               const start = startStr ? toDateFromTime(bookingDate, startStr) : null;
               const end = endStr ? toDateFromTime(bookingDate, endStr) : null;
               const isJoinTime = start && end && now >= start && now <= end;
-              console.log(start, end, now)
               const getModeIcon = (mode) => {
                 switch (mode?.toLowerCase()) {
                   case "call":
@@ -1034,11 +1031,11 @@ reviewRatingText: {
     shadowRadius: 5,
   },
 
-  title: {
-    fontWeight: "700",
-    marginBottom: 10,
-    fontSize: 16,
-  },
+  // title: {
+  //   fontWeight: "700",
+  //   marginBottom: 10,
+  //   fontSize: 16,
+  // },
 
   notificationItem: {
     paddingVertical: 8,
@@ -1383,25 +1380,7 @@ reviewRatingText: {
     fontWeight: 'bold',
     color: '#fff',
   },
-  pointRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    marginBottom: 8,
-  },
-
-  bullet: {
-    color: "#fff",
-    fontSize: 15,
-    lineHeight: 22,
-    marginRight: 8,
-  },
-
-  pointText: {
-    flex: 1,
-    color: "#fff",
-    fontSize: 15,
-    lineHeight: 22,
-  },
+ 
   videoCard: {
     width: 200,
     marginRight: 12,
@@ -1426,13 +1405,29 @@ reviewRatingText: {
   },
   listContainer: {
     marginTop: 12,
+    paddingLeft: 4,          // subtle inset so bullets don’t touch card edge
   },
-
-  point: {
-    color: '#fff',
-    fontSize: 15,
-    marginBottom: 6,
+  
+  pointRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 10,        // better vertical rhythm
   },
+  
+  bullet: {
+    color: "#fff",
+    fontSize: 18,            // slightly bigger bullet
+    lineHeight: 24,          // aligns bullet with first line of text
+    marginRight: 10,         // clearer gap between bullet & text
+  },
+  
+  pointText: {
+    flex: 1,
+    color: "#fff",
+    fontSize: 14,            // slightly smaller than title
+    lineHeight: 22,          // better readability for long lines
+  },
+  
   emptyState: {
     alignItems: 'center',
     paddingVertical: 20,

@@ -60,11 +60,11 @@ export default function HomeStack() {
                     title: "Connect with chat", headerShown: true
                 }}
             /> */}
-            <Stack.Screen
+            {/* <Stack.Screen
                 name="VoiceVideoCallScreen"
                 component={VoiceVideoCallScreen}
                 options={{ title: "Connect", headerShown: false }}
-            />
+            /> */}
             <Stack.Screen
                 name="KundliDetailScreen"
                 component={KundliDetailScreen}
